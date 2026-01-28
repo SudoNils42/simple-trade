@@ -54,6 +54,14 @@ export const ASSETS = [
 
 const PROXY = 'https://corsproxy.io/?'
 
+function getYahooApiUrl(path) {
+  const isDev = import.meta.env.DEV
+  if (isDev) {
+    return `/yahoo-api${path}`
+  }
+  return `${PROXY}${encodeURIComponent(`https://query2.finance.yahoo.com${path}`)}`
+}
+
 function base64ToArrayBuffer(base64) {
   const binaryString = atob(base64)
   const bytes = new Uint8Array(binaryString.length)
@@ -309,7 +317,7 @@ export async function fetchClosingPricesFromYahoo() {
       const symbol = symbols[i]
       
       try {
-        const url = `/yahoo-api/v8/finance/chart/${symbol}?interval=1d&range=2d`
+        const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
         
         const res = await fetch(url)
         
@@ -365,7 +373,7 @@ export async function fetchHistoricalData(symbol, range = '1d') {
     const yahooRange = rangeMap[range] || '1d'
     const interval = range === '24h' ? '5m' : (range === '7d' ? '30m' : (range === '1m' ? '1h' : (range === '1y' ? '1d' : '1d')))
     
-    const url = `/yahoo-api/v8/finance/chart/${symbol}?interval=${interval}&range=${yahooRange}`
+    const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=${interval}&range=${yahooRange}`)
     
     const res = await fetch(url)
     

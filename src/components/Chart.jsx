@@ -13,6 +13,18 @@ export function Chart({ data, color = '#30d158', currentPrice }) {
     const container = containerRef.current
     container.innerHTML = ''
 
+    const getPrecision = (values) => {
+      if (!values || values.length === 0) return 2
+      const maxVal = Math.max(...values.map(v => Math.abs(v.value)))
+      if (maxVal < 0.01) return 6
+      if (maxVal < 0.1) return 5
+      if (maxVal < 1) return 4
+      if (maxVal < 10) return 3
+      return 2
+    }
+
+    const precision = data && data.length > 0 ? getPrecision(data) : 2
+
     const chart = createChart(container, {
       width: container.clientWidth,
       height: container.clientHeight,
@@ -27,6 +39,7 @@ export function Chart({ data, color = '#30d158', currentPrice }) {
       rightPriceScale: { 
         borderVisible: false,
         autoScale: true,
+        minimumWidth: 60,
       },
       timeScale: { borderVisible: false, visible: false },
       handleScroll: false,
@@ -41,6 +54,11 @@ export function Chart({ data, color = '#30d158', currentPrice }) {
         },
         horzLine: {
           visible: false,
+        },
+      },
+      localization: {
+        priceFormatter: (price) => {
+          return price.toFixed(precision)
         },
       },
     })

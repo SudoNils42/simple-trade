@@ -1,13 +1,13 @@
 import { useState } from 'react'
 
-export function Settings({ portfolio, onSetBalance, onReset }) {
+export function Settings({ portfolio, onAddCash, onReset }) {
   const [amount, setAmount] = useState('')
   const [confirm, setConfirm] = useState(false)
 
-  const handleSet = () => {
+  const handleAdd = () => {
     const val = parseFloat(amount)
     if (val > 0) {
-      onSetBalance(val)
+      onAddCash(val)
       setAmount('')
     }
   }
@@ -24,6 +24,10 @@ export function Settings({ portfolio, onSetBalance, onReset }) {
     const date = new Date(timestamp)
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
+
+  const realisedPnL = portfolio.realisedPnL || 0
+  const totalCapital = 10000 + (portfolio.totalDeposits || 0)
+  const realisedPnLPercent = (realisedPnL / totalCapital) * 100
 
   return (
     <div className="min-h-screen">
@@ -45,11 +49,11 @@ export function Settings({ portfolio, onSetBalance, onReset }) {
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="New amount"
+              placeholder="Add cash"
               className="flex-1 bg-zinc-900 text-white rounded-xl px-4 py-3 text-[17px] focus:outline-none"
             />
             <button
-              onClick={handleSet}
+              onClick={handleAdd}
               disabled={!amount || parseFloat(amount) <= 0}
               className="bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold disabled:text-zinc-600 disabled:bg-zinc-900 transition-colors"
             >
@@ -76,6 +80,12 @@ export function Settings({ portfolio, onSetBalance, onReset }) {
             <div className="flex justify-between">
               <span className="text-zinc-500">Trades</span>
               <span className="font-semibold">{portfolio.history.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Realised P&L</span>
+              <span className={`font-semibold ${realisedPnL >= 0 ? 'text-green-500' : 'text-[#ff453a]'}`}>
+                {fmt(realisedPnL)} ({realisedPnL >= 0 ? '+' : ''}{realisedPnLPercent.toFixed(2)}%)
+              </span>
             </div>
           </div>
         </section>

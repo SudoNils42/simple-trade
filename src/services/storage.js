@@ -5,7 +5,9 @@ const initial = {
   balance: 10000,
   positions: [],
   history: [],
-  createdAt: Date.now()
+  createdAt: Date.now(),
+  realisedPnL: 0,
+  totalDeposits: 0
 }
 
 export function load() {
@@ -15,6 +17,12 @@ export function load() {
       const parsed = JSON.parse(data)
       if (!parsed.createdAt) {
         parsed.createdAt = Date.now()
+      }
+      if (parsed.realisedPnL === undefined) {
+        parsed.realisedPnL = 0
+      }
+      if (parsed.totalDeposits === undefined) {
+        parsed.totalDeposits = 0
       }
       return parsed
     }
@@ -35,9 +43,10 @@ export function reset() {
   return data
 }
 
-export function setBalance(amount) {
+export function addCash(amount) {
   const data = load()
-  data.balance = amount
+  data.balance += amount
+  data.totalDeposits += amount
   save(data)
   return data
 }
@@ -53,12 +62,18 @@ export function buy(symbol, name, qty, price) {
   const idx = data.positions.findIndex(p => p.symbol === symbol)
   if (idx >= 0) {
     const pos = data.positions[idx]
-    const newQty = pos.qty + qty
-    const newAvg = (pos.qty * pos.avg + cost) / newQty
-    pos.qty = newQty
-    pos.avg = newAvg
+    if (!pos.lots) {
+      pos.lots = [{ qty: pos.qty, price: pos.avg, date: Date.now() }]
+      delete pos.qty
+      delete pos.avg
+    }
+    pos.lots.push({ qty, price, date: Date.now() })
   } else {
-    data.positions.push({ symbol, name, qty, avg: price })
+    data.positions.push({ 
+      symbol, 
+      name, 
+      lots: [{ qty, price, date: Date.now() }]
+    })
   }
   
   data.history.unshift({
@@ -82,12 +97,37 @@ export function sell(symbol, qty, price) {
   if (idx < 0) return null
   
   const pos = data.positions[idx]
-  if (qty > pos.qty) qty = pos.qty
   
+  if (!pos.lots) {
+    pos.lots = [{ qty: pos.qty, price: pos.avg, date: Date.now() }]
+    delete pos.qty
+    delete pos.avg
+  }
+  
+  const totalQty = pos.lots.reduce((sum, lot) => sum + lot.qty, 0)
+  if (qty > totalQty) qty = totalQty
+  
+  let remaining = qty
+  let totalPnL = 0
+  
+  while (remaining > 0 && pos.lots.length > 0) {
+    const lot = pos.lots[0]
+    const sellQty = Math.min(remaining, lot.qty)
+    const pnl = (price - lot.price) * sellQty
+    totalPnL += pnl
+    
+    lot.qty = parseFloat((lot.qty - sellQty).toFixed(8))
+    remaining = parseFloat((remaining - sellQty).toFixed(8))
+    
+    if (lot.qty <= 0.00000001) {
+      pos.lots.shift()
+    }
+  }
+  
+  data.realisedPnL += totalPnL
   data.balance += qty * price
-  pos.qty -= qty
   
-  if (pos.qty <= 0) {
+  if (pos.lots.length === 0) {
     data.positions.splice(idx, 1)
   }
   

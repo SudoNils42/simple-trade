@@ -96,28 +96,30 @@ export function Home({ prices, onBuy }) {
   return (
     <div className="min-h-screen overflow-y-auto scrollbar-hide">
       <header className="sticky top-0 z-10 bg-black/80 backdrop-blur-xl pt-14 pb-4" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-        <h1 className="text-[34px] font-bold tracking-tight mb-2">Markets</h1>
-        {marketStatus && localCountdown && (
-          <div className="flex items-center gap-2 mb-6">
-            {marketStatus.isOpen ? (
-              <>
-                <div className="w-2 h-2 bg-[#ff453a] rounded-full animate-pulse-record flex-shrink-0"></div>
-                <span className="text-[15px] font-semibold text-white">Open</span>
-                <span className="text-zinc-600 text-[15px]">•</span>
-                <span className="text-[15px] text-zinc-600">Closes in {localCountdown}</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 1a5 5 0 015 5v2h1a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5zm0 2a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z"/>
-                </svg>
-                <span className="text-[15px] font-semibold text-[#ff453a]">Closed</span>
-                <span className="text-zinc-600 text-[15px]">•</span>
-                <span className="text-[15px] text-zinc-600">Opens in {localCountdown}</span>
-              </>
-            )}
-          </div>
-        )}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-[34px] font-bold tracking-tight">Markets</h1>
+          {marketStatus && localCountdown && (
+            <div className="flex items-center gap-2" style={{ position: 'relative', top: '2px' }}>
+              {marketStatus.isOpen ? (
+                <>
+                  <div className="w-2 h-2 bg-[#ff453a] rounded-full animate-pulse-record flex-shrink-0"></div>
+                  <span className="text-[15px] font-semibold text-white">Open</span>
+                  <span className="text-zinc-600 text-[15px]">•</span>
+                  <span className="text-[15px] text-zinc-600">Closes in {localCountdown}</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" style={{ position: 'relative', top: '-1px' }}>
+                    <path d="M12 1a5 5 0 015 5v2h1a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5zm0 2a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z"/>
+                  </svg>
+                  <span className="text-[15px] font-semibold text-[#ff453a]">Closed</span>
+                  <span className="text-zinc-600 text-[15px]">•</span>
+                  <span className="text-[15px] text-zinc-600">Opens in {localCountdown}</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         <div className="relative w-full">
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-zinc-500 pointer-events-none z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -154,7 +156,7 @@ export function Home({ prices, onBuy }) {
                   isFavorite={true}
                   onFavoriteChange={handleFavoriteChange}
                   onBuy={onBuy}
-                  marketClosed={prices[a.symbol]?.marketClosed || false}
+                  marketClosed={a.type !== 'crypto' && !marketStatus?.isOpen}
                 />
               ))}
             </div>
@@ -181,7 +183,7 @@ export function Home({ prices, onBuy }) {
                   isFavorite={isFavorite(a.symbol)}
                   onFavoriteChange={handleFavoriteChange}
                   onBuy={onBuy}
-                  marketClosed={prices[a.symbol]?.marketClosed || false}
+                  marketClosed={a.type !== 'crypto' && !marketStatus?.isOpen}
                 />
               ))}
             </div>
@@ -208,7 +210,7 @@ export function Home({ prices, onBuy }) {
                   isFavorite={isFavorite(a.symbol)}
                   onFavoriteChange={handleFavoriteChange}
                   onBuy={onBuy}
-                  marketClosed={false}
+                  marketClosed={a.type !== 'crypto' && !marketStatus?.isOpen}
                 />
               ))}
             </div>
@@ -235,7 +237,7 @@ export function Home({ prices, onBuy }) {
                   isFavorite={isFavorite(a.symbol)}
                   onFavoriteChange={handleFavoriteChange}
                   onBuy={onBuy}
-                  marketClosed={prices[a.symbol]?.marketClosed || false}
+                  marketClosed={a.type !== 'crypto' && !marketStatus?.isOpen}
                 />
               ))}
             </div>
@@ -262,7 +264,7 @@ export function Home({ prices, onBuy }) {
                   isFavorite={isFavorite(a.symbol)}
                   onFavoriteChange={handleFavoriteChange}
                   onBuy={onBuy}
-                  marketClosed={prices[a.symbol]?.marketClosed || false}
+                  marketClosed={a.type !== 'crypto' && !marketStatus?.isOpen}
                 />
               ))}
             </div>
@@ -288,7 +290,7 @@ export function Home({ prices, onBuy }) {
                   isFavorite={isFavorite(a.symbol)}
                   onFavoriteChange={handleFavoriteChange}
                   onBuy={onBuy}
-                  marketClosed={prices[a.symbol]?.marketClosed || false}
+                  marketClosed={a.type !== 'crypto' && !marketStatus?.isOpen}
                 />
               ))}
             </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
-import { connectWebSockets, fetchClosingPricesFromYahoo, getNYTime, isMarketOpen, ASSETS } from './services/api'
+import { connectWebSockets, fetchClosingPricesFromYahoo, getNYTime, isMarketOpen, setMarketOpen, ASSETS } from './services/api'
 import * as storage from './services/storage'
 import { Nav } from './components/Nav'
 import { Home } from './pages/Home'
@@ -22,6 +22,8 @@ export default function App() {
       const testAsset = { type: 'stock' }
       const wasOpen = marketOpenRef.current
       marketOpenRef.current = isMarketOpen(testAsset, nyTime)
+      
+      setMarketOpen(marketOpenRef.current)
       
       if (!wasOpen && marketOpenRef.current) {
         ignoreWebSocketRef.current = false
@@ -63,8 +65,7 @@ export default function App() {
             price,
             prevClose,
             change: price - prevClose,
-            changePercent: ((price - prevClose) / prevClose) * 100,
-            marketClosed: data.marketClosed || false
+            changePercent: ((price - prevClose) / prevClose) * 100
           }
         }
       })
@@ -73,7 +74,11 @@ export default function App() {
     return () => {
       clearInterval(marketCheckInterval)
       if (wsRef.current) {
-        wsRef.current.forEach(ws => ws?.close())
+        if (wsRef.current.cleanup) {
+          wsRef.current.cleanup()
+        } else {
+          wsRef.current.forEach(ws => ws?.close())
+        }
         wsRef.current = null
       }
     }
@@ -94,8 +99,8 @@ export default function App() {
     if (updated) setPortfolio(updated)
   }, [])
 
-  const handleSetBalance = useCallback((amount) => {
-    const updated = storage.setBalance(amount)
+  const handleAddCash = useCallback((amount) => {
+    const updated = storage.addCash(amount)
     setPortfolio(updated)
   }, [])
 
@@ -140,7 +145,7 @@ export default function App() {
           element={
             <Settings 
               portfolio={portfolio}
-              onSetBalance={handleSetBalance}
+              onAddCash={handleAddCash}
               onReset={handleReset}
             />
           } 

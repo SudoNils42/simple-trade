@@ -30,6 +30,16 @@ export const ASSETS = [
   { symbol: 'DIS', name: 'Disney', type: 'stock', tvName: 'walt-disney' },
   { symbol: 'MCD', name: "McDonald's", type: 'stock', tvName: 'mcdonalds' },
   { symbol: 'NKE', name: 'Nike', type: 'stock', tvName: 'nike' },
+  { symbol: 'RGTI', name: 'Rigetti Computing', type: 'stock', tvName: 'rigetti-computing-redeemable--big' },
+  { symbol: 'DUOL', name: 'Duolingo', type: 'stock', tvName: 'duolingo' },
+  { symbol: 'COIN', name: 'Coinbase', type: 'stock', tvName: 'coinbase' },
+  { symbol: 'SHOP', name: 'Shopify', type: 'stock', tvName: 'shopify' },
+  { symbol: 'PYPL', name: 'PayPal', type: 'stock', tvName: 'paypal' },
+  { symbol: 'RIOT', name: 'Riot Platforms', type: 'stock', tvName: 'riot-blockchain' },
+  { symbol: 'MARA', name: 'Marathon Digital', type: 'stock', tvName: 'marathon' },
+  { symbol: 'NIO', name: 'Nio', type: 'stock', tvName: 'nio' },
+  { symbol: 'BB', name: 'BlackBerry', type: 'stock', tvName: 'blackberry' },
+  { symbol: 'IONQ', name: 'IonQ', type: 'stock', tvName: 'ionq' },
   { symbol: 'BTC-USD', name: 'Bitcoin', type: 'crypto', display: 'BTC', binanceSymbol: 'BTCUSDT' },
   { symbol: 'ETH-USD', name: 'Ethereum', type: 'crypto', display: 'ETH', binanceSymbol: 'ETHUSDT' },
   { symbol: 'SOL-USD', name: 'Solana', type: 'crypto', display: 'SOL', binanceSymbol: 'SOLUSDT' },
@@ -44,12 +54,12 @@ export const ASSETS = [
   { symbol: 'CL=F', name: 'Crude Oil', type: 'futures', display: 'OIL', tvName: 'crude-oil' },
   { symbol: 'NG=F', name: 'Natural Gas', type: 'futures', display: 'GAS', tvName: 'natural-gas' },
   { symbol: 'EURUSD=X', name: 'Euro', type: 'forex', display: 'EUR', currencySymbol: '€' },
-  { symbol: 'JPYUSD=X', name: 'Japanese Yen', type: 'forex', display: 'JPY', currencySymbol: '¥' },
+  { symbol: 'JPYUSD=X', name: 'Japanese Yen', type: 'forex', display: 'JPY', currencySymbol: '¥', wsSymbol: 'JPY=X', invertPrice: true },
   { symbol: 'GBPUSD=X', name: 'British Pound', type: 'forex', display: 'GBP', currencySymbol: '£' },
   { symbol: 'AUDUSD=X', name: 'Australian Dollar', type: 'forex', display: 'AUD', currencySymbol: 'A$' },
-  { symbol: 'CADUSD=X', name: 'Canadian Dollar', type: 'forex', display: 'CAD', currencySymbol: 'C$' },
-  { symbol: 'CHFUSD=X', name: 'Swiss Franc', type: 'forex', display: 'CHF', currencySymbol: '₣' },
-  { symbol: 'CNHUSD=X', name: 'Chinese Yuan', type: 'forex', display: 'CNY', currencySymbol: '¥' },
+  { symbol: 'CADUSD=X', name: 'Canadian Dollar', type: 'forex', display: 'CAD', currencySymbol: 'C$', wsSymbol: 'CAD=X', invertPrice: true },
+  { symbol: 'CHFUSD=X', name: 'Swiss Franc', type: 'forex', display: 'CHF', currencySymbol: '₣', wsSymbol: 'CHF=X', invertPrice: true },
+  { symbol: 'CNHUSD=X', name: 'Chinese Yuan', type: 'forex', display: 'CNY', currencySymbol: '¥', wsSymbol: 'CNH=X', invertPrice: true },
 ]
 
 const PROXY = 'https://corsproxy.io/?'
@@ -79,6 +89,12 @@ function isValidPrice(price) {
          price < 1000000000
 }
 
+let isMarketCurrentlyOpen = true
+
+export function setMarketOpen(isOpen) {
+  isMarketCurrentlyOpen = isOpen
+}
+
 export function connectWebSockets(onUpdate) {
   const connections = []
   let yahooReconnectTimer = null
@@ -91,7 +107,7 @@ export function connectWebSockets(onUpdate) {
       const yahooWs = new WebSocket('wss://streamer.finance.yahoo.com/')
       
       yahooWs.onopen = () => {
-        const symbols = ASSETS.filter(a => a.type !== 'crypto').map(a => a.symbol)
+        const symbols = ASSETS.filter(a => a.type !== 'crypto').map(a => a.wsSymbol || a.symbol)
         yahooWs.send(JSON.stringify({ subscribe: symbols }))
       }
       
@@ -103,19 +119,26 @@ export function connectWebSockets(onUpdate) {
           
           const decoded = decodeMessage(buffer)
           
+          
           if (decoded?.id && decoded.price && isValidPrice(decoded.price)) {
-            const asset = ASSETS.find(a => a.symbol === decoded.id)
+            const asset = ASSETS.find(a => a.symbol === decoded.id || a.wsSymbol === decoded.id)
             if (!asset) return
             
-            const marketClosed = asset.type === 'stock' && decoded.marketHours && decoded.marketHours !== 2
+            const rawPrice = decoded.price
+            const rawPreviousClose = decoded.previousClose
+            const rawChange = decoded.change || 0
+            const rawChangePercent = decoded.changePercent || 0
             
-            onUpdate(decoded.id, decoded.price, {
-              previousClose: decoded.previousClose && isValidPrice(decoded.previousClose) 
-                ? decoded.previousClose 
-                : decoded.price - (decoded.change || 0),
-              change: decoded.change || 0,
-              changePercent: decoded.changePercent || 0,
-              marketClosed: marketClosed
+            const price = asset.invertPrice && rawPrice > 0 ? 1 / rawPrice : rawPrice
+            const previousClose = asset.invertPrice && rawPreviousClose > 0 ? 1 / rawPreviousClose : rawPreviousClose
+            const changePercent = asset.invertPrice ? -rawChangePercent : rawChangePercent
+            
+            onUpdate(asset.symbol, price, {
+              previousClose: previousClose && isValidPrice(previousClose) 
+                ? previousClose 
+                : price - (price * changePercent / 100),
+              change: previousClose && isValidPrice(previousClose) ? price - previousClose : 0,
+              changePercent: changePercent
             })
           }
         } catch (e) {}
@@ -192,7 +215,72 @@ export function connectWebSockets(onUpdate) {
   connectYahoo()
   connectBinance()
   
-  return connections
+  const fallbackSymbols = ['GC=F', 'SI=F', 'CL=F', 'NG=F', '^GSPC']
+  
+  const fetchFallbackPrices = async () => {
+    if (!isMarketCurrentlyOpen) {
+      return
+    }
+    
+    try {
+      const updated = []
+      
+      for (const symbol of fallbackSymbols) {
+        try {
+          const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1m&range=1d`)
+          const res = await fetch(url)
+          
+          if (!res.ok) continue
+          
+          const data = await res.json()
+          const result = data?.chart?.result?.[0]
+          
+          if (!result) continue
+          
+          const meta = result.meta
+          const quotes = result.indicators?.quote?.[0]
+          const timestamps = result.timestamp || []
+          
+          if (!quotes || timestamps.length === 0) continue
+          
+          const lastIdx = timestamps.length - 1
+          const price = quotes.close?.[lastIdx]
+          const previousClose = meta?.previousClose
+          
+          if (!price || !isValidPrice(price)) continue
+          
+          const asset = ASSETS.find(a => a.symbol === symbol)
+          if (!asset) continue
+          
+          const change = previousClose ? price - previousClose : 0
+          const changePercent = previousClose ? ((price - previousClose) / previousClose) * 100 : 0
+          
+          onUpdate(asset.symbol, price, {
+            previousClose: previousClose && isValidPrice(previousClose) ? previousClose : price,
+            change: change,
+            changePercent: changePercent
+          })
+          
+          updated.push(symbol)
+        } catch (e) {}
+      }
+      
+    } catch (e) {
+    }
+  }
+  
+  fetchFallbackPrices()
+  const fallbackInterval = setInterval(fetchFallbackPrices, 60000)
+  
+  return {
+    connections,
+    cleanup: () => {
+      connections.forEach(ws => ws.close())
+      if (yahooReconnectTimer) clearTimeout(yahooReconnectTimer)
+      if (binanceReconnectTimer) clearTimeout(binanceReconnectTimer)
+      clearInterval(fallbackInterval)
+    }
+  }
 }
 
 async function fetchYahooChart(symbol) {
@@ -341,8 +429,7 @@ export async function fetchClosingPricesFromYahoo() {
               price,
               prevClose,
               change,
-              changePercent,
-              marketClosed: true
+              changePercent
             }
           }
         }
@@ -362,6 +449,10 @@ export async function fetchClosingPricesFromYahoo() {
 
 export async function fetchHistoricalData(symbol, range = '1d') {
   try {
+    const asset = ASSETS.find(a => a.symbol === symbol)
+    const apiSymbol = asset?.wsSymbol || symbol
+    const shouldInvert = asset?.invertPrice || false
+    
     const rangeMap = {
       '24h': '1d',
       '7d': '7d',
@@ -373,7 +464,7 @@ export async function fetchHistoricalData(symbol, range = '1d') {
     const yahooRange = rangeMap[range] || '1d'
     const interval = range === '24h' ? '5m' : (range === '7d' ? '30m' : (range === '1m' ? '1h' : (range === '1y' ? '1d' : '1d')))
     
-    const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=${interval}&range=${yahooRange}`)
+    const url = getYahooApiUrl(`/v8/finance/chart/${apiSymbol}?interval=${interval}&range=${yahooRange}`)
     
     const res = await fetch(url)
     
@@ -383,6 +474,10 @@ export async function fetchHistoricalData(symbol, range = '1d') {
     
     const data = await res.json()
     
+    if (data?.chart?.error) {
+      return []
+    }
+    
     if (data?.chart?.result?.[0]) {
       const result = data.chart.result[0]
       const timestamps = result.timestamp || []
@@ -390,7 +485,7 @@ export async function fetchHistoricalData(symbol, range = '1d') {
       
       const chartData = timestamps.map((time, i) => ({
         time,
-        value: closes[i]
+        value: shouldInvert && closes[i] > 0 ? 1 / closes[i] : closes[i]
       })).filter(d => d.value != null)
       
       return chartData

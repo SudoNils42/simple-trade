@@ -8,6 +8,8 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
   const navigate = useNavigate()
   const [chartData, setChartData] = useState([])
   const [qty, setQty] = useState('')
+  const [customPrice, setCustomPrice] = useState('')
+  const [showCustomPrice, setShowCustomPrice] = useState(false)
   const [mode, setMode] = useState('buy')
   const [timeRange, setTimeRange] = useState('24h')
   const [isLoadingChart, setIsLoadingChart] = useState(false)
@@ -16,6 +18,19 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
   const logoUrl = asset ? getLogoUrl(asset) : null
   const priceData = prices[symbol]
   const position = portfolio.positions.find(p => p.symbol === symbol)
+
+  const getPositionData = (pos) => {
+    if (!pos) return null
+    if (pos.lots) {
+      const totalQty = pos.lots.reduce((sum, lot) => sum + lot.qty, 0)
+      const totalCost = pos.lots.reduce((sum, lot) => sum + (lot.qty * lot.price), 0)
+      const avgPrice = totalCost / totalQty
+      return { qty: totalQty, avg: avgPrice, lots: pos.lots }
+    }
+    return { qty: pos.qty, avg: pos.avg, lots: null }
+  }
+
+  const posData = getPositionData(position)
 
   const price = priceData?.price || 0
   
@@ -46,6 +61,11 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
     })
   }, [symbol, timeRange, asset])
 
+  useEffect(() => {
+    setCustomPrice('')
+    setShowCustomPrice(false)
+  }, [mode])
+
   if (!asset) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-black">
@@ -55,12 +75,13 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
     )
   }
 
+  const buyPrice = mode === 'buy' && customPrice ? (parseFloat(customPrice) || price) : price
   const shares = parseFloat(qty) || 0
-  const total = shares * price
+  const total = shares * buyPrice
   const canBuy = shares > 0 && total <= portfolio.balance
-  const canSell = shares > 0 && position && shares <= position.qty
+  const canSell = shares > 0 && position && posData && shares <= posData.qty
 
-  const maxShares = mode === 'buy' ? (price > 0 ? portfolio.balance / price : 0) : (position?.qty || 0)
+  const maxShares = mode === 'buy' ? (buyPrice > 0 ? portfolio.balance / buyPrice : 0) : (posData?.qty || 0)
 
   const handlePercentage = (percent) => {
     const amount = (maxShares * percent).toFixed(4)
@@ -69,8 +90,10 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
 
   const handleTrade = () => {
     if (mode === 'buy' && canBuy) {
-      onBuy(symbol, asset.name, shares, price)
+      onBuy(symbol, asset.name, shares, buyPrice)
       setQty('')
+      setCustomPrice('')
+      setShowCustomPrice(false)
     } else if (mode === 'sell' && canSell) {
       onSell(symbol, shares, price)
       setQty('')
@@ -82,17 +105,7 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
   return (
     <div className="min-h-screen bg-black">
       <header className="pt-14 pb-4" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-blue-500 text-[17px] mb-6"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between" style={{ marginTop: '4px' }}>
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden p-2.5 flex-shrink-0">
               <img 
@@ -126,11 +139,11 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
             <div className="w-full h-full flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div>
             </div>
-          ) : chartData.length > 0 ? (
+          ) : chartData.length >= 2 ? (
             <Chart data={chartData} color={isUp ? '#30d158' : '#ff453a'} currentPrice={price} />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm">
-              No data available
+              No data available for this period
             </div>
           )}
         </div>
@@ -213,6 +226,57 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
           </div>
 
           <div className="flex justify-between text-[15px] mb-2">
+            <span className="text-zinc-500">{mode === 'buy' && customPrice ? 'Custom Price' : 'Price'}</span>
+            {mode === 'buy' ? (
+              <div className="flex items-center justify-end" style={{ minWidth: '120px' }}>
+                {showCustomPrice ? (
+                  <>
+                    {customPrice && (
+                      <button
+                        onClick={() => {
+                          setCustomPrice('')
+                          setShowCustomPrice(false)
+                        }}
+                        className="text-zinc-500 hover:text-zinc-300 text-[11px]"
+                        style={{ marginRight: '8px' }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <span className="text-zinc-400 font-semibold">$</span>
+                    <input
+                      type="number"
+                      value={customPrice}
+                      onChange={(e) => setCustomPrice(e.target.value)}
+                      placeholder={price.toFixed(2)}
+                      className="font-semibold text-zinc-400"
+                      style={{ 
+                        background: 'transparent', 
+                        border: 'none', 
+                        outline: 'none', 
+                        width: `${Math.max(3, (customPrice || price.toFixed(2)).toString().length)}ch`,
+                        textAlign: 'left',
+                        padding: 0,
+                        margin: 0
+                      }}
+                      autoFocus
+                    />
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowCustomPrice(true)}
+                    className="font-semibold text-zinc-400 hover:text-zinc-300 transition-colors"
+                  >
+                    {fmt(buyPrice)}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <span className="font-semibold text-white">{fmt(price)}</span>
+            )}
+          </div>
+
+          <div className="flex justify-between text-[15px] mb-2">
             <span className="text-zinc-500">Total</span>
             <span className="font-semibold text-white">{fmt(total)}</span>
           </div>
@@ -222,7 +286,7 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
               {mode === 'buy' ? 'Available' : 'Owned'}
             </span>
             <span className="font-medium text-white">
-              {mode === 'buy' ? fmt(portfolio.balance) : (position?.qty.toFixed(4) || '0')}
+              {mode === 'buy' ? fmt(portfolio.balance) : (posData?.qty.toFixed(4) || '0')}
             </span>
           </div>
 
@@ -234,45 +298,57 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
                 ? mode === 'buy'
                   ? 'bg-[#30d158] text-black'
                   : 'bg-[#ff453a] text-white'
-                : 'text-zinc-600 border border-zinc-800'
+                : 'bg-zinc-700 text-zinc-400'
             }`}
           >
             {mode === 'buy' ? 'Buy' : 'Sell'}
           </button>
       </div>
 
-      {position && (
+      {position && posData && (
         <div className="pb-8" style={{ marginTop: '48px', paddingLeft: '8px', paddingRight: '8px' }}>
           <div className="text-[13px] font-semibold text-zinc-500 uppercase tracking-wider mb-5">
-            Position
+            {posData.lots && posData.lots.length > 1 ? 'Positions' : 'Position'} ({posData.lots ? posData.lots.length : 1})
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-zinc-500 text-[13px]">Shares</div>
-              <div className="text-[17px] font-semibold text-white">{position.qty.toFixed(4)}</div>
-            </div>
-            <div>
-              <div className="text-zinc-500 text-[13px]">Avg Price</div>
-              <div className="text-[17px] font-semibold text-white">{fmt(position.avg)}</div>
-            </div>
-            <div>
-              <div className="text-zinc-500 text-[13px]">Value</div>
-              <div className="text-[17px] font-semibold text-white">{fmt(position.qty * price)}</div>
-            </div>
-            <div>
-              <div className="text-zinc-500 text-[13px]">P&L</div>
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="text-zinc-500 text-[15px]">
+                Shares: {parseFloat(posData.qty.toFixed(4))}  Avg price: {fmt(posData.avg)}
+              </div>
               {(() => {
-                const pnl = (price - position.avg) * position.qty
-                const pct = ((price - position.avg) / position.avg) * 100
+                const pnl = (price - posData.avg) * posData.qty
+                const pct = ((price - posData.avg) / posData.avg) * 100
                 const up = pnl >= 0
                 return (
-                  <div className={`text-[17px] font-semibold ${up ? 'text-[#30d158]' : 'text-[#ff453a]'}`}>
-                    {up ? '+' : ''}{fmt(pnl)} ({up ? '+' : ''}{pct.toFixed(1)}%)
+                  <div className={`text-[15px] font-semibold flex-shrink-0 ml-4 ${up ? 'text-[#30d158]' : 'text-[#ff453a]'}`}>
+                    {up ? '+' : ''}{fmt(pnl)} ({up ? '+' : ''}{pct.toFixed(2)}%)
                   </div>
                 )
               })()}
             </div>
           </div>
+          {posData.lots && posData.lots.length > 1 && (
+            <div style={{ paddingLeft: '0px', paddingTop: '4px' }}>
+              {posData.lots.map((lot, idx) => {
+                const lotPnl = (price - lot.price) * lot.qty
+                const lotUp = lotPnl >= 0
+                return (
+                  <div 
+                    key={idx} 
+                    className="flex items-center justify-between text-[13px] text-zinc-500"
+                    style={{ paddingTop: '2px', paddingBottom: '2px', borderTop: idx === 0 ? '1px solid #27272a' : 'none' }}
+                  >
+                    <div>
+                      {parseFloat(lot.qty.toFixed(4))} shares × {fmt(lot.price)}
+                    </div>
+                    <div className={lotUp ? 'text-[#30d158]' : 'text-[#ff453a]'}>
+                      {lotUp ? '+' : ''}{fmt(lotPnl)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
       

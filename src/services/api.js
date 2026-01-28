@@ -79,6 +79,14 @@ function isValidPrice(price) {
          price < 1000000000
 }
 
+function normalizeForexPrice(symbol, price) {
+  const asset = ASSETS.find(a => a.symbol === symbol)
+  if (asset?.type === 'forex' && symbol.startsWith('USD')) {
+    return 1 / price
+  }
+  return price
+}
+
 export function connectWebSockets(onUpdate) {
   const connections = []
   let yahooReconnectTimer = null
@@ -109,12 +117,17 @@ export function connectWebSockets(onUpdate) {
             
             const marketClosed = asset.type === 'stock' && decoded.marketHours && decoded.marketHours !== 2
             
-            onUpdate(decoded.id, decoded.price, {
-              previousClose: decoded.previousClose && isValidPrice(decoded.previousClose) 
-                ? decoded.previousClose 
-                : decoded.price - (decoded.change || 0),
-              change: decoded.change || 0,
-              changePercent: decoded.changePercent || 0,
+            const normalizedPrice = normalizeForexPrice(decoded.id, decoded.price)
+            const normalizedPrevClose = decoded.previousClose && isValidPrice(decoded.previousClose)
+              ? normalizeForexPrice(decoded.id, decoded.previousClose)
+              : normalizedPrice - (decoded.change || 0)
+            const normalizedChange = normalizedPrice - normalizedPrevClose
+            const normalizedChangePercent = (normalizedChange / normalizedPrevClose) * 100
+            
+            onUpdate(decoded.id, normalizedPrice, {
+              previousClose: normalizedPrevClose,
+              change: normalizedChange,
+              changePercent: normalizedChangePercent,
               marketClosed: marketClosed
             })
           }
@@ -208,7 +221,7 @@ async function fetchYahooChart(symbol) {
     const closes = result.indicators.quote[0].close
     
     return timestamps
-      .map((t, i) => ({ time: t, value: closes[i] }))
+      .map((t, i) => ({ time: t, value: closes[i] !== null ? normalizeForexPrice(symbol, closes[i]) : null }))
       .filter(d => d.value !== null)
   } catch {
     return null
@@ -334,12 +347,14 @@ export async function fetchClosingPricesFromYahoo() {
           const prevClose = meta.chartPreviousClose || price
           
           if (price && prevClose) {
-            const change = price - prevClose
-            const changePercent = (change / prevClose) * 100
+            const normalizedPrice = normalizeForexPrice(symbol, price)
+            const normalizedPrevClose = normalizeForexPrice(symbol, prevClose)
+            const change = normalizedPrice - normalizedPrevClose
+            const changePercent = (change / normalizedPrevClose) * 100
             
             prices[symbol] = {
-              price,
-              prevClose,
+              price: normalizedPrice,
+              prevClose: normalizedPrevClose,
               change,
               changePercent,
               marketClosed: true
@@ -390,7 +405,7 @@ export async function fetchHistoricalData(symbol, range = '1d') {
       
       const chartData = timestamps.map((time, i) => ({
         time,
-        value: closes[i]
+        value: closes[i] != null ? normalizeForexPrice(symbol, closes[i]) : null
       })).filter(d => d.value != null)
       
       return chartData

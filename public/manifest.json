@@ -2,7 +2,7 @@
   "name": "Trade Simple",
   "short_name": "Trade Simple",
   "description": "Simple trading simulation app",
-  "start_url": "/trade_simple/",
+  "start_url": "/trade_simple/#/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

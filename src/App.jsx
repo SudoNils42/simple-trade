@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { connectWebSockets, fetchClosingPricesFromYahoo, getNYTime, isMarketOpen, ASSETS } from './services/api'
 import * as storage from './services/storage'
 import { Nav } from './components/Nav'
@@ -111,7 +111,7 @@ export default function App() {
   }, [])
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Home prices={prices} onBuy={handleBuy} />} />
         <Route 
@@ -147,6 +147,6 @@ export default function App() {
         />
       </Routes>
       <Nav unseenCount={unseenCount} />
-    </BrowserRouter>
+    </HashRouter>
   )
 }

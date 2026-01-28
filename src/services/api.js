@@ -44,11 +44,11 @@ export const ASSETS = [
   { symbol: 'CL=F', name: 'Crude Oil', type: 'futures', display: 'OIL', tvName: 'crude-oil' },
   { symbol: 'NG=F', name: 'Natural Gas', type: 'futures', display: 'GAS', tvName: 'natural-gas' },
   { symbol: 'EURUSD=X', name: 'Euro', type: 'forex', display: 'EUR', currencySymbol: '€' },
-  { symbol: 'USDJPY=X', name: 'Japanese Yen', type: 'forex', display: 'JPY', currencySymbol: '¥' },
+  { symbol: 'JPYUSD=X', name: 'Japanese Yen', type: 'forex', display: 'JPY', currencySymbol: '¥' },
   { symbol: 'GBPUSD=X', name: 'British Pound', type: 'forex', display: 'GBP', currencySymbol: '£' },
   { symbol: 'AUDUSD=X', name: 'Australian Dollar', type: 'forex', display: 'AUD', currencySymbol: 'A$' },
-  { symbol: 'USDCAD=X', name: 'Canadian Dollar', type: 'forex', display: 'CAD', currencySymbol: 'C$' },
-  { symbol: 'USDCHF=X', name: 'Swiss Franc', type: 'forex', display: 'CHF', currencySymbol: '₣' },
+  { symbol: 'CADUSD=X', name: 'Canadian Dollar', type: 'forex', display: 'CAD', currencySymbol: 'C$' },
+  { symbol: 'CHFUSD=X', name: 'Swiss Franc', type: 'forex', display: 'CHF', currencySymbol: '₣' },
   { symbol: 'CNHUSD=X', name: 'Chinese Yuan', type: 'forex', display: 'CNY', currencySymbol: '¥' },
 ]
 
@@ -77,14 +77,6 @@ function isValidPrice(price) {
          isFinite(price) && 
          price > 0 && 
          price < 1000000000
-}
-
-function normalizeForexPrice(symbol, price) {
-  const asset = ASSETS.find(a => a.symbol === symbol)
-  if (asset?.type === 'forex' && symbol.startsWith('USD')) {
-    return 1 / price
-  }
-  return price
 }
 
 export function connectWebSockets(onUpdate) {
@@ -117,17 +109,12 @@ export function connectWebSockets(onUpdate) {
             
             const marketClosed = asset.type === 'stock' && decoded.marketHours && decoded.marketHours !== 2
             
-            const normalizedPrice = normalizeForexPrice(decoded.id, decoded.price)
-            const normalizedPrevClose = decoded.previousClose && isValidPrice(decoded.previousClose)
-              ? normalizeForexPrice(decoded.id, decoded.previousClose)
-              : normalizedPrice - (decoded.change || 0)
-            const normalizedChange = normalizedPrice - normalizedPrevClose
-            const normalizedChangePercent = (normalizedChange / normalizedPrevClose) * 100
-            
-            onUpdate(decoded.id, normalizedPrice, {
-              previousClose: normalizedPrevClose,
-              change: normalizedChange,
-              changePercent: normalizedChangePercent,
+            onUpdate(decoded.id, decoded.price, {
+              previousClose: decoded.previousClose && isValidPrice(decoded.previousClose) 
+                ? decoded.previousClose 
+                : decoded.price - (decoded.change || 0),
+              change: decoded.change || 0,
+              changePercent: decoded.changePercent || 0,
               marketClosed: marketClosed
             })
           }
@@ -221,7 +208,7 @@ async function fetchYahooChart(symbol) {
     const closes = result.indicators.quote[0].close
     
     return timestamps
-      .map((t, i) => ({ time: t, value: closes[i] !== null ? normalizeForexPrice(symbol, closes[i]) : null }))
+      .map((t, i) => ({ time: t, value: closes[i] }))
       .filter(d => d.value !== null)
   } catch {
     return null
@@ -347,14 +334,12 @@ export async function fetchClosingPricesFromYahoo() {
           const prevClose = meta.chartPreviousClose || price
           
           if (price && prevClose) {
-            const normalizedPrice = normalizeForexPrice(symbol, price)
-            const normalizedPrevClose = normalizeForexPrice(symbol, prevClose)
-            const change = normalizedPrice - normalizedPrevClose
-            const changePercent = (change / normalizedPrevClose) * 100
+            const change = price - prevClose
+            const changePercent = (change / prevClose) * 100
             
             prices[symbol] = {
-              price: normalizedPrice,
-              prevClose: normalizedPrevClose,
+              price,
+              prevClose,
               change,
               changePercent,
               marketClosed: true
@@ -405,7 +390,7 @@ export async function fetchHistoricalData(symbol, range = '1d') {
       
       const chartData = timestamps.map((time, i) => ({
         time,
-        value: closes[i] != null ? normalizeForexPrice(symbol, closes[i]) : null
+        value: closes[i]
       })).filter(d => d.value != null)
       
       return chartData
@@ -442,11 +427,11 @@ export function getLogoUrl(asset) {
   if (asset.type === 'forex') {
     const forexLogos = {
       'EURUSD=X': 'https://s3-symbol-logo.tradingview.com/country/EU.svg',
-      'USDJPY=X': 'https://s3-symbol-logo.tradingview.com/country/JP.svg',
+      'JPYUSD=X': 'https://s3-symbol-logo.tradingview.com/country/JP.svg',
       'GBPUSD=X': 'https://s3-symbol-logo.tradingview.com/country/GB.svg',
       'AUDUSD=X': 'https://s3-symbol-logo.tradingview.com/country/AU.svg',
-      'USDCAD=X': 'https://s3-symbol-logo.tradingview.com/country/CA.svg',
-      'USDCHF=X': 'https://s3-symbol-logo.tradingview.com/country/CH.svg',
+      'CADUSD=X': 'https://s3-symbol-logo.tradingview.com/country/CA.svg',
+      'CHFUSD=X': 'https://s3-symbol-logo.tradingview.com/country/CH.svg',
       'CNHUSD=X': 'https://s3-symbol-logo.tradingview.com/country/CN.svg'
     }
     

@@ -397,37 +397,60 @@ export function isMarketOpen(asset, nyTime) {
 export async function fetchClosingPricesFromYahoo() {
   try {
     const symbols = ASSETS.filter(a => a.type !== 'crypto').map(a => a.symbol)
-    const symbolsString = symbols.join(',')
-    
-    const url = getYahooApiUrl(`/v7/finance/quote?symbols=${symbolsString}`)
-    
-    const res = await fetch(url)
-    
-    if (!res.ok) {
-      return {}
-    }
-    
-    const data = await res.json()
-    
     const prices = {}
     
-    if (data?.quoteResponse?.result) {
-      for (const quote of data.quoteResponse.result) {
-        const symbol = quote.symbol
-        const price = quote.regularMarketPrice
-        const prevClose = quote.regularMarketPreviousClose
-        
-        if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
-          const change = price - prevClose
-          const changePercent = (change / prevClose) * 100
+    const chunkSize = 5
+    
+    for (let i = 0; i < symbols.length; i += chunkSize) {
+      const chunk = symbols.slice(i, i + chunkSize)
+      
+      const promises = chunk.map(async (symbol) => {
+        try {
+          const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
+          const res = await fetch(url)
           
-          prices[symbol] = {
-            price,
-            prevClose,
-            change,
-            changePercent
+          if (!res.ok) return null
+          
+          const data = await res.json()
+          
+          if (data?.chart?.result?.[0]) {
+            const result = data.chart.result[0]
+            const meta = result.meta
+            const price = meta.regularMarketPrice || meta.chartPreviousClose
+            const prevClose = meta.chartPreviousClose || price
+            
+            if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
+              const change = price - prevClose
+              const changePercent = (change / prevClose) * 100
+              
+              return {
+                symbol,
+                data: {
+                  price,
+                  prevClose,
+                  change,
+                  changePercent
+                }
+              }
+            }
           }
+          
+          return null
+        } catch {
+          return null
         }
+      })
+      
+      const results = await Promise.all(promises)
+      
+      for (const result of results) {
+        if (result) {
+          prices[result.symbol] = result.data
+        }
+      }
+      
+      if (i + chunkSize < symbols.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
       }
     }
     

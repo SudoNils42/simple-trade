@@ -397,45 +397,37 @@ export function isMarketOpen(asset, nyTime) {
 export async function fetchClosingPricesFromYahoo() {
   try {
     const symbols = ASSETS.filter(a => a.type !== 'crypto').map(a => a.symbol)
+    const symbolsString = symbols.join(',')
+    
+    const url = getYahooApiUrl(`/v7/finance/quote?symbols=${symbolsString}`)
+    
+    const res = await fetch(url)
+    
+    if (!res.ok) {
+      return {}
+    }
+    
+    const data = await res.json()
+    
     const prices = {}
     
-    for (let i = 0; i < symbols.length; i++) {
-      const symbol = symbols[i]
-      
-      try {
-        const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
+    if (data?.quoteResponse?.result) {
+      for (const quote of data.quoteResponse.result) {
+        const symbol = quote.symbol
+        const price = quote.regularMarketPrice
+        const prevClose = quote.regularMarketPreviousClose
         
-        const res = await fetch(url)
-        
-        if (!res.ok) {
-          continue
-        }
-        
-        const data = await res.json()
-        
-        if (data?.chart?.result?.[0]) {
-          const result = data.chart.result[0]
-          const meta = result.meta
-          const price = meta.regularMarketPrice || meta.chartPreviousClose
-          const prevClose = meta.chartPreviousClose || price
+        if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
+          const change = price - prevClose
+          const changePercent = (change / prevClose) * 100
           
-          if (price && prevClose) {
-            const change = price - prevClose
-            const changePercent = (change / prevClose) * 100
-            
-            prices[symbol] = {
-              price,
-              prevClose,
-              change,
-              changePercent
-            }
+          prices[symbol] = {
+            price,
+            prevClose,
+            change,
+            changePercent
           }
         }
-        
-        if (i < symbols.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-      } catch (err) {
       }
     }
     

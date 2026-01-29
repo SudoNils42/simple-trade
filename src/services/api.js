@@ -62,14 +62,12 @@ export const ASSETS = [
   { symbol: 'CNHUSD=X', name: 'Chinese Yuan', type: 'forex', display: 'CNY', currencySymbol: '¥', wsSymbol: 'CNH=X', invertPrice: true },
 ]
 
-const PROXY = 'https://corsproxy.io/?'
-
 function getYahooApiUrl(path) {
   const isDev = import.meta.env.DEV
   if (isDev) {
     return `/yahoo-api${path}`
   }
-  return `${PROXY}${encodeURIComponent(`https://query2.finance.yahoo.com${path}`)}`
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query2.finance.yahoo.com${path}`)}`
 }
 
 function base64ToArrayBuffer(base64) {
@@ -285,7 +283,7 @@ export function connectWebSockets(onUpdate) {
 
 async function fetchYahooChart(symbol) {
   try {
-    const url = `${PROXY}${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`)}`
+    const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`)}`
     const res = await fetch(url)
     const data = await res.json()
     

@@ -69,9 +69,9 @@ export const ASSETS = [
 ]
 
 const CORS_PROXIES = [
-  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
   (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ]
 
 let currentProxyIndex = 0
@@ -563,7 +563,7 @@ export async function fetchHistoricalData(symbol, range = '1d') {
 }
 
 export function getApiStats() {
-  const proxyNames = ['allorigins.win', 'corsproxy.io', 'codetabs.com']
+  const proxyNames = ['corsproxy.io', 'codetabs.com', 'allorigins.win']
   return {
     ...apiManager.getStats(),
     currentProxy: proxyNames[currentProxyIndex],

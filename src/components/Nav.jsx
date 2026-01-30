@@ -8,7 +8,7 @@ export function Nav({ unseenCount = 0 }) {
   const badgeText = unseenCount > 99 ? '99+' : String(unseenCount)
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/90 backdrop-blur-xl border-t border-zinc-800" style={{ height: '72px', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/90 backdrop-blur-xl border-t border-zinc-800" style={{ height: 'calc(72px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div style={{ height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'space-around', maxWidth: '600px', margin: '0 auto', width: '100%' }}>
         <NavLink to="/" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} style={{ gap: '6px' }}>
           <svg style={{ width: '28px', height: '28px' }} fill="currentColor" viewBox="0 0 24 24">

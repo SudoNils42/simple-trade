@@ -95,7 +95,7 @@ export function Home({ prices, onBuy, loadingClosingPrices }) {
 
   return (
     <div className="min-h-screen overflow-y-auto scrollbar-hide">
-      <header className="sticky top-0 z-10 bg-black/80 backdrop-blur-xl pt-14 pb-4" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+      <header className="sticky top-0 z-10 bg-black/80 backdrop-blur-xl pb-4" style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-[34px] font-bold tracking-tight">Markets</h1>
           {marketStatus && localCountdown && (

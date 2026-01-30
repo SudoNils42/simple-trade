@@ -72,7 +72,7 @@ export function Portfolio({ portfolio, prices, onClearNotifications }) {
 
   return (
     <div className="min-h-screen">
-      <header className="pt-14 pb-4" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+      <header className="pb-4" style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
         <h1 className="text-[34px] font-bold tracking-tight mb-6">Portfolio</h1>
         
         <div>

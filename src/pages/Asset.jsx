@@ -109,7 +109,7 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
 
   return (
     <div className="min-h-screen bg-black">
-      <header className="pt-14 pb-4" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+      <header className="pb-4" style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
         <div className="flex items-start justify-between" style={{ marginTop: '4px' }}>
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden p-2.5 flex-shrink-0">

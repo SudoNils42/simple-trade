@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getApiStats, clearApiCache } from '../services/api'
 
 export function Settings({ portfolio, onAddCash, onReset }) {
+  const [apiStats, setApiStats] = useState(null)
   const [amount, setAmount] = useState('')
   const [confirm, setConfirm] = useState(false)
 
@@ -28,6 +30,20 @@ export function Settings({ portfolio, onAddCash, onReset }) {
   const realisedPnL = portfolio.realisedPnL || 0
   const totalCapital = 10000 + (portfolio.totalDeposits || 0)
   const realisedPnLPercent = (realisedPnL / totalCapital) * 100
+
+  useEffect(() => {
+    const updateStats = () => {
+      setApiStats(getApiStats())
+    }
+    updateStats()
+    const interval = setInterval(updateStats, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleClearCache = () => {
+    clearApiCache()
+    setApiStats(getApiStats())
+  }
 
   return (
     <div className="min-h-screen">
@@ -88,6 +104,42 @@ export function Settings({ portfolio, onAddCash, onReset }) {
               </span>
             </div>
           </div>
+        </section>
+
+        <div style={{ height: '48px' }}></div>
+
+        <section className="pb-8 border-b border-zinc-800">
+          <div className="text-[13px] font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+            API Stats
+          </div>
+          {apiStats && (
+            <div className="space-y-3 mb-5">
+              <div className="flex justify-between text-[15px]">
+                <span className="text-zinc-500">Cache Size</span>
+                <span className="text-white font-medium">{apiStats.cacheSize} items</span>
+              </div>
+              <div className="flex justify-between text-[15px]">
+                <span className="text-zinc-500">Requests (last hour)</span>
+                <span className="text-white font-medium">{apiStats.requestCount} / 2000</span>
+              </div>
+              <div className="flex justify-between text-[15px]">
+                <span className="text-zinc-500">Circuit Breaker</span>
+                <span className={`font-medium ${apiStats.circuitState === 'closed' ? 'text-green-500' : apiStats.circuitState === 'open' ? 'text-[#ff453a]' : 'text-yellow-500'}`}>
+                  {apiStats.circuitState.toUpperCase()}
+                </span>
+              </div>
+              <div className="flex justify-between text-[15px]">
+                <span className="text-zinc-500">Failed Requests</span>
+                <span className="text-white font-medium">{apiStats.failures}</span>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleClearCache}
+            className="w-full text-blue-400 py-3 rounded-xl font-semibold bg-zinc-900"
+          >
+            Clear Cache
+          </button>
         </section>
 
         <div style={{ height: '48px' }}></div>

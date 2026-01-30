@@ -1,4 +1,5 @@
 import { decodeMessage } from './yahoo-proto'
+import { apiManager } from './api-manager'
 
 export const ASSETS = [
   { symbol: 'NVDA', name: 'Nvidia', type: 'stock', tvName: 'nvidia' },
@@ -220,51 +221,51 @@ export function connectWebSockets(onUpdate) {
       return
     }
     
-    try {
-      const updated = []
-      
-      for (const symbol of fallbackSymbols) {
-        try {
-          const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1m&range=1d`)
-          const res = await fetch(url)
-          
-          if (!res.ok) continue
-          
-          const data = await res.json()
-          const result = data?.chart?.result?.[0]
-          
-          if (!result) continue
-          
-          const meta = result.meta
-          const quotes = result.indicators?.quote?.[0]
-          const timestamps = result.timestamp || []
-          
-          if (!quotes || timestamps.length === 0) continue
-          
-          const lastIdx = timestamps.length - 1
-          const price = quotes.close?.[lastIdx]
-          const previousClose = meta?.previousClose
-          
-          if (!price || !isValidPrice(price)) continue
-          
-          const asset = ASSETS.find(a => a.symbol === symbol)
-          if (!asset) continue
-          
-          const change = previousClose ? price - previousClose : 0
-          const changePercent = previousClose ? ((price - previousClose) / previousClose) * 100 : 0
-          
-          onUpdate(asset.symbol, price, {
-            previousClose: previousClose && isValidPrice(previousClose) ? previousClose : price,
-            change: change,
-            changePercent: changePercent
-          })
-          
-          updated.push(symbol)
-        } catch (e) {}
+    const promises = fallbackSymbols.map(async (symbol) => {
+      try {
+        const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1m&range=1d`)
+        
+        const data = await apiManager.fetch(url, {
+          maxAge: 60000,
+          useCache: true,
+          retries: 2,
+          logPrefix: `[FALLBACK ${symbol}]`
+        })
+        
+        const result = data?.chart?.result?.[0]
+        if (!result) return null
+        
+        const meta = result.meta
+        const quotes = result.indicators?.quote?.[0]
+        const timestamps = result.timestamp || []
+        
+        if (!quotes || timestamps.length === 0) return null
+        
+        const lastIdx = timestamps.length - 1
+        const price = quotes.close?.[lastIdx]
+        const previousClose = meta?.previousClose
+        
+        if (!price || !isValidPrice(price)) return null
+        
+        const asset = ASSETS.find(a => a.symbol === symbol)
+        if (!asset) return null
+        
+        const change = previousClose ? price - previousClose : 0
+        const changePercent = previousClose ? ((price - previousClose) / previousClose) * 100 : 0
+        
+        onUpdate(asset.symbol, price, {
+          previousClose: previousClose && isValidPrice(previousClose) ? previousClose : price,
+          change: change,
+          changePercent: changePercent
+        })
+        
+        return symbol
+      } catch (e) {
+        return null
       }
-      
-    } catch (e) {
-    }
+    })
+    
+    await Promise.allSettled(promises)
   }
   
   fetchFallbackPrices()
@@ -281,29 +282,6 @@ export function connectWebSockets(onUpdate) {
   }
 }
 
-async function fetchYahooChart(symbol) {
-  try {
-    const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`)}`
-    const res = await fetch(url)
-    const data = await res.json()
-    
-    const result = data.chart?.result?.[0]
-    if (!result?.timestamp || !result?.indicators?.quote?.[0]?.close) return null
-    
-    const timestamps = result.timestamp
-    const closes = result.indicators.quote[0].close
-    
-    return timestamps
-      .map((t, i) => ({ time: t, value: closes[i] }))
-      .filter(d => d.value !== null)
-  } catch {
-    return null
-  }
-}
-
-export async function fetchChart(asset) {
-  return fetchYahooChart(asset.symbol)
-}
 
 export function getAsset(symbol) {
   return ASSETS.find(a => a.symbol === symbol)
@@ -394,92 +372,72 @@ export function isMarketOpen(asset, nyTime) {
   return currentMinutes >= marketOpen && currentMinutes < marketClose
 }
 
-async function fetchSingleClosingPrice(symbol, retries = 2) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
-      const res = await fetch(url)
+async function fetchSingleClosingPrice(symbol) {
+  try {
+    const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
+    
+    const data = await apiManager.fetch(url, {
+      maxAge: 300000,
+      useCache: true,
+      retries: 3,
+      logPrefix: `[CLOSING ${symbol}]`
+    })
+    
+    if (data?.chart?.result?.[0]) {
+      const result = data.chart.result[0]
+      const meta = result.meta
+      const price = meta.regularMarketPrice || meta.chartPreviousClose
+      const prevClose = meta.chartPreviousClose || price
       
-      if (!res.ok) {
-        if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          continue
-        }
-        console.warn(`[CLOSING PRICES] ❌ ${symbol}: HTTP ${res.status} (après ${attempt + 1} tentatives)`)
-        return null
-      }
-      
-      const data = await res.json()
-      
-      if (data?.chart?.result?.[0]) {
-        const result = data.chart.result[0]
-        const meta = result.meta
-        const price = meta.regularMarketPrice || meta.chartPreviousClose
-        const prevClose = meta.chartPreviousClose || price
+      if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
+        const change = price - prevClose
+        const changePercent = (change / prevClose) * 100
         
-        if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
-          const change = price - prevClose
-          const changePercent = (change / prevClose) * 100
-          
-          console.log(`[CLOSING PRICES] ✅ ${symbol}: $${price.toFixed(2)}${attempt > 0 ? ` (tentative ${attempt + 1})` : ''}`)
-          
-          return {
-            symbol,
-            data: {
-              price,
-              prevClose,
-              change,
-              changePercent
-            }
+        console.log(`[CLOSING PRICES] ✅ ${symbol}: $${price.toFixed(2)}`)
+        
+        return {
+          symbol,
+          data: {
+            price,
+            prevClose,
+            change,
+            changePercent
           }
-        } else {
-          console.warn(`[CLOSING PRICES] ⚠️ ${symbol}: Prix invalide`)
         }
-      } else {
-        console.warn(`[CLOSING PRICES] ⚠️ ${symbol}: Pas de données`)
       }
-      
-      return null
-    } catch (err) {
-      if (attempt < retries) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        continue
-      }
-      console.error(`[CLOSING PRICES] ❌ ${symbol}: ${err.message} (après ${attempt + 1} tentatives)`)
-      return null
     }
+    
+    return null
+  } catch (err) {
+    console.error(`[CLOSING PRICES] ❌ ${symbol}: ${err.message}`)
+    return null
   }
-  return null
 }
 
 export async function fetchClosingPricesFromYahoo() {
   try {
     const symbols = ASSETS.filter(a => a.type !== 'crypto').map(a => a.symbol)
-    console.log(`[CLOSING PRICES] 🚀 Chargement de ${symbols.length} assets (marché fermé)...`)
+    console.log(`[CLOSING PRICES] 🚀 Chargement de ${symbols.length} assets (marché fermé)`)
     
     const prices = {}
-    const chunkSize = 5
-    const delayBetweenChunks = 2000
-    const totalChunks = Math.ceil(symbols.length / chunkSize)
+    const batchSize = 10
+    const batchDelay = 500
     
-    for (let i = 0; i < symbols.length; i += chunkSize) {
-      const chunk = symbols.slice(i, i + chunkSize)
-      const chunkNumber = Math.floor(i / chunkSize) + 1
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize)
       
-      console.log(`[CLOSING PRICES] 📦 Chunk ${chunkNumber}/${totalChunks}: ${chunk.join(', ')}`)
-      
-      const promises = chunk.map(symbol => fetchSingleClosingPrice(symbol))
-      const results = await Promise.all(promises)
+      const results = await Promise.allSettled(
+        batch.map(symbol => fetchSingleClosingPrice(symbol))
+      )
       
       for (const result of results) {
-        if (result) {
-          prices[result.symbol] = result.data
+        if (result.status === 'fulfilled' && result.value) {
+          prices[result.value.symbol] = result.value.data
         }
       }
       
-      if (i + chunkSize < symbols.length) {
-        console.log(`[CLOSING PRICES] ⏳ Attente ${delayBetweenChunks}ms avant le prochain chunk...`)
-        await new Promise(resolve => setTimeout(resolve, delayBetweenChunks))
+      if (i + batchSize < symbols.length) {
+        await new Promise(resolve => setTimeout(resolve, batchDelay))
       }
     }
     
@@ -487,15 +445,14 @@ export async function fetchClosingPricesFromYahoo() {
     const failCount = symbols.length - successCount
     
     if (failCount > 0) {
-      console.warn(`[CLOSING PRICES] ⚠️ ${failCount} assets ont échoué:`, 
-        symbols.filter(s => !prices[s]))
+      console.warn(`[CLOSING PRICES] ⚠️ ${failCount} assets échoués`)
     }
     
-    console.log(`[CLOSING PRICES] 🎯 Terminé: ${successCount}/${symbols.length} assets chargés (${Math.round((successCount / symbols.length) * 100)}%)`)
+    console.log(`[CLOSING PRICES] 🎯 ${successCount}/${symbols.length} chargés`)
     
     return prices
   } catch (err) {
-    console.error(`[CLOSING PRICES] ❌ Erreur globale: ${err.message}`)
+    console.error(`[CLOSING PRICES] ❌ ${err.message}`)
     return {}
   }
 }
@@ -517,15 +474,16 @@ export async function fetchHistoricalData(symbol, range = '1d') {
     const yahooRange = rangeMap[range] || '1d'
     const interval = range === '24h' ? '5m' : (range === '7d' ? '30m' : (range === '1m' ? '1h' : (range === '1y' ? '1d' : '1d')))
     
+    const cacheMaxAge = range === '24h' ? 60000 : (range === '7d' ? 300000 : (range === '1m' ? 600000 : 3600000))
+    
     const url = getYahooApiUrl(`/v8/finance/chart/${apiSymbol}?interval=${interval}&range=${yahooRange}`)
     
-    const res = await fetch(url)
-    
-    if (!res.ok) {
-      return []
-    }
-    
-    const data = await res.json()
+    const data = await apiManager.fetch(url, {
+      maxAge: cacheMaxAge,
+      useCache: true,
+      retries: 2,
+      logPrefix: `[CHART ${symbol}]`
+    })
     
     if (data?.chart?.error) {
       return []
@@ -546,8 +504,18 @@ export async function fetchHistoricalData(symbol, range = '1d') {
     
     return []
   } catch (err) {
+    console.error(`[CHART ${symbol}] ❌ ${err.message}`)
     return []
   }
+}
+
+export function getApiStats() {
+  return apiManager.getStats()
+}
+
+export function clearApiCache() {
+  apiManager.clearCache()
+  console.log('[API] Cache vidé')
 }
 
 export function getLogoUrl(asset) {

@@ -43,7 +43,13 @@ class ApiManager {
   }
 
   getCacheKey(url) {
-    return btoa(url).substring(0, 50)
+    let hash = 0
+    for (let i = 0; i < url.length; i++) {
+      const char = url.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash
+    }
+    return `cache_${Math.abs(hash)}`
   }
 
   canMakeRequest() {

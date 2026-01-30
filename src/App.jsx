@@ -27,9 +27,22 @@ export default function App() {
       setMarketOpen(marketOpenRef.current)
       
       if (!wasOpen && marketOpenRef.current) {
+        console.log('[APP] 🔓 Marché OUVERT - Activation WebSocket temps réel')
         ignoreWebSocketRef.current = false
       } else if (wasOpen && !marketOpenRef.current) {
+        console.log('[APP] 🔒 Marché FERMÉ - Chargement NOUVEAUX prix de clôture')
         ignoreWebSocketRef.current = true
+        setLoadingClosingPrices(true)
+        
+        fetchClosingPricesFromYahoo(true).then(closingPrices => {
+          if (Object.keys(closingPrices).length > 0) {
+            setPrices(prev => ({ ...prev, ...closingPrices }))
+          }
+          setLoadingClosingPrices(false)
+        }).catch(err => {
+          console.error('Erreur lors du chargement des prix de clôture:', err)
+          setLoadingClosingPrices(false)
+        })
       }
       
       return marketOpenRef.current
@@ -41,7 +54,7 @@ export default function App() {
       ignoreWebSocketRef.current = true
       setLoadingClosingPrices(true)
       
-      fetchClosingPricesFromYahoo().then(closingPrices => {
+      fetchClosingPricesFromYahoo(false).then(closingPrices => {
         if (Object.keys(closingPrices).length > 0) {
           setPrices(prev => ({ ...prev, ...closingPrices }))
         }

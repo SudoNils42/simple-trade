@@ -217,7 +217,8 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
                 onChange={(e) => setQty(e.target.value)}
                 className="w-full h-2 rounded-full appearance-none cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, ${mode === 'buy' ? '#30d158' : '#ff453a'} 0%, ${mode === 'buy' ? '#30d158' : '#ff453a'} ${maxShares > 0 ? ((qty || 0) / maxShares) * 100 : 0}%, #27272a ${maxShares > 0 ? ((qty || 0) / maxShares) * 100 : 0}%, #27272a 100%)`
+                  background: `linear-gradient(to right, ${mode === 'buy' ? '#30d158' : '#ff453a'} 0%, ${mode === 'buy' ? '#30d158' : '#ff453a'} ${maxShares > 0 ? ((qty || 0) / maxShares) * 100 : 0}%, #27272a ${maxShares > 0 ? ((qty || 0) / maxShares) * 100 : 0}%, #27272a 100%)`,
+                  touchAction: 'pan-y'
                 }}
               />
             </div>

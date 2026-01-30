@@ -3,7 +3,7 @@ import { ASSETS, searchAssets, getAsset, getNYTime, getMarketCountdown } from '.
 import { AssetRow } from '../components/AssetRow'
 import { loadFavorites, isFavorite } from '../services/favorites'
 
-export function Home({ prices, onBuy }) {
+export function Home({ prices, onBuy, loadingClosingPrices }) {
   const [query, setQuery] = useState('')
   const [favoritesUpdate, setFavoritesUpdate] = useState(0)
   const [nyTime, setNyTime] = useState(null)
@@ -134,6 +134,13 @@ export function Home({ prices, onBuy }) {
           />
         </div>
       </header>
+
+      {loadingClosingPrices && (
+        <div className="bg-blue-500/10 border-t border-b border-blue-500/20 py-3 px-4 flex items-center gap-3">
+          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-[15px] text-blue-400">Chargement des prix de clôture...</span>
+        </div>
+      )}
 
       <main>
         <div className="h-6"></div>

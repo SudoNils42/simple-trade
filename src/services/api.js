@@ -394,53 +394,81 @@ export function isMarketOpen(asset, nyTime) {
   return currentMinutes >= marketOpen && currentMinutes < marketClose
 }
 
+async function fetchSingleClosingPrice(symbol, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
+      const res = await fetch(url)
+      
+      if (!res.ok) {
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          continue
+        }
+        console.warn(`[CLOSING PRICES] ❌ ${symbol}: HTTP ${res.status} (après ${attempt + 1} tentatives)`)
+        return null
+      }
+      
+      const data = await res.json()
+      
+      if (data?.chart?.result?.[0]) {
+        const result = data.chart.result[0]
+        const meta = result.meta
+        const price = meta.regularMarketPrice || meta.chartPreviousClose
+        const prevClose = meta.chartPreviousClose || price
+        
+        if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
+          const change = price - prevClose
+          const changePercent = (change / prevClose) * 100
+          
+          console.log(`[CLOSING PRICES] ✅ ${symbol}: $${price.toFixed(2)}${attempt > 0 ? ` (tentative ${attempt + 1})` : ''}`)
+          
+          return {
+            symbol,
+            data: {
+              price,
+              prevClose,
+              change,
+              changePercent
+            }
+          }
+        } else {
+          console.warn(`[CLOSING PRICES] ⚠️ ${symbol}: Prix invalide`)
+        }
+      } else {
+        console.warn(`[CLOSING PRICES] ⚠️ ${symbol}: Pas de données`)
+      }
+      
+      return null
+    } catch (err) {
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        continue
+      }
+      console.error(`[CLOSING PRICES] ❌ ${symbol}: ${err.message} (après ${attempt + 1} tentatives)`)
+      return null
+    }
+  }
+  return null
+}
+
 export async function fetchClosingPricesFromYahoo() {
   try {
     const symbols = ASSETS.filter(a => a.type !== 'crypto').map(a => a.symbol)
-    const prices = {}
+    console.log(`[CLOSING PRICES] 🚀 Chargement de ${symbols.length} assets (marché fermé)...`)
     
+    const prices = {}
     const chunkSize = 5
+    const delayBetweenChunks = 2000
+    const totalChunks = Math.ceil(symbols.length / chunkSize)
     
     for (let i = 0; i < symbols.length; i += chunkSize) {
       const chunk = symbols.slice(i, i + chunkSize)
+      const chunkNumber = Math.floor(i / chunkSize) + 1
       
-      const promises = chunk.map(async (symbol) => {
-        try {
-          const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
-          const res = await fetch(url)
-          
-          if (!res.ok) return null
-          
-          const data = await res.json()
-          
-          if (data?.chart?.result?.[0]) {
-            const result = data.chart.result[0]
-            const meta = result.meta
-            const price = meta.regularMarketPrice || meta.chartPreviousClose
-            const prevClose = meta.chartPreviousClose || price
-            
-            if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
-              const change = price - prevClose
-              const changePercent = (change / prevClose) * 100
-              
-              return {
-                symbol,
-                data: {
-                  price,
-                  prevClose,
-                  change,
-                  changePercent
-                }
-              }
-            }
-          }
-          
-          return null
-        } catch {
-          return null
-        }
-      })
+      console.log(`[CLOSING PRICES] 📦 Chunk ${chunkNumber}/${totalChunks}: ${chunk.join(', ')}`)
       
+      const promises = chunk.map(symbol => fetchSingleClosingPrice(symbol))
       const results = await Promise.all(promises)
       
       for (const result of results) {
@@ -450,12 +478,24 @@ export async function fetchClosingPricesFromYahoo() {
       }
       
       if (i + chunkSize < symbols.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        console.log(`[CLOSING PRICES] ⏳ Attente ${delayBetweenChunks}ms avant le prochain chunk...`)
+        await new Promise(resolve => setTimeout(resolve, delayBetweenChunks))
       }
     }
     
+    const successCount = Object.keys(prices).length
+    const failCount = symbols.length - successCount
+    
+    if (failCount > 0) {
+      console.warn(`[CLOSING PRICES] ⚠️ ${failCount} assets ont échoué:`, 
+        symbols.filter(s => !prices[s]))
+    }
+    
+    console.log(`[CLOSING PRICES] 🎯 Terminé: ${successCount}/${symbols.length} assets chargés (${Math.round((successCount / symbols.length) * 100)}%)`)
+    
     return prices
   } catch (err) {
+    console.error(`[CLOSING PRICES] ❌ Erreur globale: ${err.message}`)
     return {}
   }
 }
@@ -566,3 +606,4 @@ export function getLogoUrl(asset) {
     </svg>
   `)}`
 }
+

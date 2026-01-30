@@ -12,6 +12,7 @@ export default function App() {
   const [prices, setPrices] = useState({})
   const [portfolio, setPortfolio] = useState(storage.load)
   const [unseenCount, setUnseenCount] = useState(storage.getUnseenCount)
+  const [loadingClosingPrices, setLoadingClosingPrices] = useState(false)
   const wsRef = useRef(null)
   const marketOpenRef = useRef(false)
   const ignoreWebSocketRef = useRef(false)
@@ -38,11 +39,16 @@ export default function App() {
     
     if (!initialMarketOpen) {
       ignoreWebSocketRef.current = true
+      setLoadingClosingPrices(true)
       
       fetchClosingPricesFromYahoo().then(closingPrices => {
         if (Object.keys(closingPrices).length > 0) {
           setPrices(prev => ({ ...prev, ...closingPrices }))
         }
+        setLoadingClosingPrices(false)
+      }).catch(err => {
+        console.error('Erreur lors du chargement des prix de clôture:', err)
+        setLoadingClosingPrices(false)
       })
     }
     
@@ -118,7 +124,7 @@ export default function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<Home prices={prices} onBuy={handleBuy} />} />
+        <Route path="/" element={<Home prices={prices} onBuy={handleBuy} loadingClosingPrices={loadingClosingPrices} />} />
         <Route 
           path="/asset/:symbol" 
           element={

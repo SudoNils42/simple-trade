@@ -147,6 +147,9 @@ export function connectWebSockets(onUpdate) {
       
       yahooWs.onopen = () => {
         const symbols = ASSETS.filter(a => a.type !== 'crypto').map(a => a.wsSymbol || a.symbol)
+        const forexSymbols = ASSETS.filter(a => a.type === 'forex').map(a => a.wsSymbol || a.symbol)
+        console.log('[WS YAHOO] Connexion réussie')
+        console.log('[WS YAHOO] Forex souscriptions:', forexSymbols.join(', '))
         yahooWs.send(JSON.stringify({ subscribe: symbols }))
       }
       
@@ -158,10 +161,14 @@ export function connectWebSockets(onUpdate) {
           
           const decoded = decodeMessage(buffer)
           
-          
           if (decoded?.id && decoded.price && isValidPrice(decoded.price)) {
             const asset = ASSETS.find(a => a.symbol === decoded.id || a.wsSymbol === decoded.id)
+            
             if (!asset) return
+            
+            if (asset.type === 'forex') {
+              console.log(`[WS FOREX] ${asset.symbol}: ${decoded.price}`)
+            }
             
             const rawPrice = decoded.price
             const rawPreviousClose = decoded.previousClose

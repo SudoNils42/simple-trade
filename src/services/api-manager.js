@@ -143,6 +143,13 @@ class ApiManager {
         throw new Error(`HTTP 429 après ${attempt + 1} tentatives`)
       }
 
+      if (res.status === 500 || res.status === 502 || res.status === 503) {
+        if (options.onProxyError) {
+          options.onProxyError(url)
+        }
+        throw new Error(`HTTP ${res.status} - Proxy error`)
+      }
+
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
       }
@@ -150,6 +157,10 @@ class ApiManager {
       const data = await res.json()
       
       this.recordSuccess()
+      
+      if (options.onProxySuccess) {
+        options.onProxySuccess()
+      }
 
       if (options.useCache && options.maxAge > 0) {
         const cacheKey = this.getCacheKey(url)
@@ -162,6 +173,12 @@ class ApiManager {
     } catch (err) {
       if (err.name === 'AbortError') {
         console.error(`${logPrefix} Timeout après 10s`)
+      }
+      
+      if (err.message.includes('CORS') || err.message.includes('Failed to fetch')) {
+        if (options.onProxyError) {
+          options.onProxyError(url)
+        }
       }
 
       if (attempt < options.retries) {

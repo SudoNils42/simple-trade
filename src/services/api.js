@@ -1,6 +1,11 @@
 import { decodeMessage } from './yahoo-proto'
 import { apiManager } from './api-manager'
 
+let proxyCallbacks = {
+  onError: recordProxyFailure,
+  onSuccess: recordProxySuccess
+}
+
 export const ASSETS = [
   { symbol: 'NVDA', name: 'Nvidia', type: 'stock', tvName: 'nvidia' },
   { symbol: 'TSLA', name: 'Tesla', type: 'stock', tvName: 'tesla' },
@@ -63,12 +68,47 @@ export const ASSETS = [
   { symbol: 'CNHUSD=X', name: 'Chinese Yuan', type: 'forex', display: 'CNY', currencySymbol: '¥', wsSymbol: 'CNH=X', invertPrice: true },
 ]
 
+const CORS_PROXIES = [
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+]
+
+let currentProxyIndex = 0
+let proxyFailures = new Map()
+
 function getYahooApiUrl(path) {
   const isDev = import.meta.env.DEV
   if (isDev) {
     return `/yahoo-api${path}`
   }
-  return `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query2.finance.yahoo.com${path}`)}`
+  
+  const baseUrl = `https://query2.finance.yahoo.com${path}`
+  const proxy = CORS_PROXIES[currentProxyIndex]
+  return proxy(baseUrl)
+}
+
+export function rotateProxy() {
+  const oldIndex = currentProxyIndex
+  currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length
+  console.warn(`[PROXY] Rotation: proxy ${oldIndex} → ${currentProxyIndex}`)
+  proxyFailures.clear()
+}
+
+export function recordProxyFailure(url) {
+  const count = (proxyFailures.get(currentProxyIndex) || 0) + 1
+  proxyFailures.set(currentProxyIndex, count)
+  
+  if (count >= 3) {
+    console.error(`[PROXY] Proxy ${currentProxyIndex} a échoué 3 fois, rotation`)
+    rotateProxy()
+  }
+}
+
+export function recordProxySuccess() {
+  if (proxyFailures.has(currentProxyIndex)) {
+    proxyFailures.delete(currentProxyIndex)
+  }
 }
 
 function base64ToArrayBuffer(base64) {
@@ -229,7 +269,9 @@ export function connectWebSockets(onUpdate) {
           maxAge: 60000,
           useCache: true,
           retries: 2,
-          logPrefix: `[FALLBACK ${symbol}]`
+          logPrefix: `[FALLBACK ${symbol}]`,
+          onProxyError: proxyCallbacks.onError,
+          onProxySuccess: proxyCallbacks.onSuccess
         })
         
         const result = data?.chart?.result?.[0]
@@ -380,7 +422,9 @@ async function fetchSingleClosingPrice(symbol) {
       maxAge: 300000,
       useCache: true,
       retries: 3,
-      logPrefix: `[CLOSING ${symbol}]`
+      logPrefix: `[CLOSING ${symbol}]`,
+      onProxyError: proxyCallbacks.onError,
+      onProxySuccess: proxyCallbacks.onSuccess
     })
     
     if (data?.chart?.result?.[0]) {
@@ -482,7 +526,9 @@ export async function fetchHistoricalData(symbol, range = '1d') {
       maxAge: cacheMaxAge,
       useCache: true,
       retries: 2,
-      logPrefix: `[CHART ${symbol}]`
+      logPrefix: `[CHART ${symbol}]`,
+      onProxyError: proxyCallbacks.onError,
+      onProxySuccess: proxyCallbacks.onSuccess
     })
     
     if (data?.chart?.error) {
@@ -510,7 +556,12 @@ export async function fetchHistoricalData(symbol, range = '1d') {
 }
 
 export function getApiStats() {
-  return apiManager.getStats()
+  const proxyNames = ['allorigins.win', 'corsproxy.io', 'codetabs.com']
+  return {
+    ...apiManager.getStats(),
+    currentProxy: proxyNames[currentProxyIndex],
+    proxyIndex: currentProxyIndex
+  }
 }
 
 export function clearApiCache() {

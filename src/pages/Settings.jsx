@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getApiStats, clearApiCache } from '../services/api'
+import { getApiStats, clearApiCache, rotateProxy } from '../services/api'
 
 export function Settings({ portfolio, onAddCash, onReset }) {
   const [apiStats, setApiStats] = useState(null)
@@ -42,6 +42,11 @@ export function Settings({ portfolio, onAddCash, onReset }) {
 
   const handleClearCache = () => {
     clearApiCache()
+    setApiStats(getApiStats())
+  }
+
+  const handleRotateProxy = () => {
+    rotateProxy()
     setApiStats(getApiStats())
   }
 
@@ -115,6 +120,10 @@ export function Settings({ portfolio, onAddCash, onReset }) {
           {apiStats && (
             <div className="space-y-3 mb-5">
               <div className="flex justify-between text-[15px]">
+                <span className="text-zinc-500">CORS Proxy</span>
+                <span className="text-white font-medium">{apiStats.currentProxy}</span>
+              </div>
+              <div className="flex justify-between text-[15px]">
                 <span className="text-zinc-500">Cache Size</span>
                 <span className="text-white font-medium">{apiStats.cacheSize} items</span>
               </div>
@@ -134,12 +143,20 @@ export function Settings({ portfolio, onAddCash, onReset }) {
               </div>
             </div>
           )}
-          <button
-            onClick={handleClearCache}
-            className="w-full text-blue-400 py-3 rounded-xl font-semibold bg-zinc-900"
-          >
-            Clear Cache
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleClearCache}
+              className="flex-1 text-blue-400 py-3 rounded-xl font-semibold bg-zinc-900"
+            >
+              Clear Cache
+            </button>
+            <button
+              onClick={handleRotateProxy}
+              className="flex-1 text-orange-400 py-3 rounded-xl font-semibold bg-zinc-900"
+            >
+              Rotate Proxy
+            </button>
+          </div>
         </section>
 
         <div style={{ height: '48px' }}></div>

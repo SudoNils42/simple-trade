@@ -454,9 +454,6 @@ function getSecondsUntilMarketOpen() {
 
 async function fetchSingleClosingPrice(symbol, forceRefresh = false) {
   try {
-    const asset = ASSETS.find(a => a.symbol === symbol)
-    const shouldInvert = asset?.invertPrice || false
-    
     const url = getYahooApiUrl(`/v8/finance/chart/${symbol}?interval=1d&range=2d`)
     
     const cacheMaxAge = forceRefresh ? 0 : (getSecondsUntilMarketOpen() * 1000)
@@ -470,12 +467,10 @@ async function fetchSingleClosingPrice(symbol, forceRefresh = false) {
     if (data?.chart?.result?.[0]) {
       const result = data.chart.result[0]
       const meta = result.meta
-      const rawPrice = meta.regularMarketPrice || meta.chartPreviousClose
-      const rawPrevClose = meta.chartPreviousClose || rawPrice
+      const price = meta.regularMarketPrice || meta.chartPreviousClose
+      const prevClose = meta.chartPreviousClose || price
       
-      if (rawPrice && rawPrevClose && isValidPrice(rawPrice) && isValidPrice(rawPrevClose)) {
-        const price = shouldInvert && rawPrice > 0 ? 1 / rawPrice : rawPrice
-        const prevClose = shouldInvert && rawPrevClose > 0 ? 1 / rawPrevClose : rawPrevClose
+      if (price && prevClose && isValidPrice(price) && isValidPrice(prevClose)) {
         const change = price - prevClose
         const changePercent = (change / prevClose) * 100
         

@@ -84,7 +84,6 @@ class ApiManager {
     if (this.circuitBreaker.failures >= this.circuitBreaker.threshold) {
       this.circuitBreaker.state = 'open'
       this.circuitBreaker.nextRetry = Date.now() + this.circuitBreaker.resetTimeout
-      console.error('[API] Circuit breaker OUVERT - trop d\'erreurs')
     }
   }
 
@@ -96,8 +95,7 @@ class ApiManager {
     const {
       maxAge = 0,
       useCache = true,
-      retries = 3,
-      logPrefix = '[API]'
+      retries = 3
     } = options
 
     const cacheKey = this.getCacheKey(url)
@@ -119,10 +117,10 @@ class ApiManager {
       throw new Error('Rate limit atteint ou circuit breaker ouvert')
     }
 
-    return this.fetchWithRetry(url, options, 0, logPrefix)
+    return this.fetchWithRetry(url, options, 0)
   }
 
-  async fetchWithRetry(url, options, attempt, logPrefix) {
+  async fetchWithRetry(url, options, attempt) {
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 10000)
@@ -140,11 +138,9 @@ class ApiManager {
         const retryAfter = parseInt(res.headers.get('Retry-After') || '60')
         const delay = Math.min(retryAfter * 1000, 120000)
         
-        console.warn(`${logPrefix} HTTP 429 - Retry dans ${delay}ms`)
-        
         if (attempt < options.retries) {
           await this.sleep(delay)
-          return this.fetchWithRetry(url, options, attempt + 1, logPrefix)
+          return this.fetchWithRetry(url, options, attempt + 1)
         }
         throw new Error(`HTTP 429 après ${attempt + 1} tentatives`)
       }
@@ -177,10 +173,6 @@ class ApiManager {
       return data
 
     } catch (err) {
-      if (err.name === 'AbortError') {
-        console.error(`${logPrefix} Timeout après 10s`)
-      }
-      
       if (err.message.includes('CORS') || err.message.includes('Failed to fetch')) {
         if (options.onProxyError) {
           options.onProxyError(url)
@@ -189,9 +181,8 @@ class ApiManager {
 
       if (attempt < options.retries) {
         const delay = Math.min(1000 * Math.pow(2, attempt), 30000)
-        console.warn(`${logPrefix} Erreur: ${err.message} - Retry dans ${delay}ms`)
         await this.sleep(delay)
-        return this.fetchWithRetry(url, options, attempt + 1, logPrefix)
+        return this.fetchWithRetry(url, options, attempt + 1)
       }
 
       this.recordFailure()
@@ -199,24 +190,6 @@ class ApiManager {
     }
   }
 
-  clearCache() {
-    this.cache.clear()
-    const keys = Object.keys(localStorage)
-    keys.forEach(key => {
-      if (key.startsWith('api_cache_')) {
-        localStorage.removeItem(key)
-      }
-    })
-  }
-
-  getStats() {
-    return {
-      cacheSize: this.cache.size,
-      requestCount: this.rateLimit.requestCount,
-      circuitState: this.circuitBreaker.state,
-      failures: this.circuitBreaker.failures
-    }
-  }
 }
 
 export const apiManager = new ApiManager()

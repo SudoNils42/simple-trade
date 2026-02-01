@@ -54,14 +54,11 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
   useEffect(() => {
     if (!asset) return
     
-    console.log(`[ASSET] Chargement chart ${symbol} (${timeRange})`)
     setIsLoadingChart(true)
     fetchHistoricalData(symbol, timeRange).then(data => {
-      console.log(`[ASSET] Chart ${symbol} reçu:`, data?.length, 'points')
       setChartData(data)
       setIsLoadingChart(false)
-    }).catch(err => {
-      console.error(`[ASSET] Erreur chart ${symbol}:`, err)
+    }).catch(() => {
       setIsLoadingChart(false)
     })
   }, [symbol, timeRange, asset])
@@ -358,7 +355,7 @@ export function Asset({ prices, portfolio, onBuy, onSell }) {
         </div>
       )}
       
-      <div style={{ height: '90px' }}></div>
+      <div style={{ height: '120px' }}></div>
     </div>
   )
 }

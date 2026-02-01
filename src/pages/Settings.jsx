@@ -125,7 +125,7 @@ export function Settings({ portfolio, onAddCash, onReset }) {
           )}
         </section>
         
-        <div style={{ height: '90px' }}></div>
+        <div style={{ height: '120px' }}></div>
       </main>
     </div>
   )

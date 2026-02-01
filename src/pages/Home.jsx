@@ -3,7 +3,7 @@ import { ASSETS, searchAssets, getAsset, getNYTime, getMarketCountdown } from '.
 import { AssetRow } from '../components/AssetRow'
 import { loadFavorites, isFavorite } from '../services/favorites'
 
-export function Home({ prices, onBuy, loadingClosingPrices }) {
+export function Home({ prices, onBuy }) {
   const [query, setQuery] = useState('')
   const [favoritesUpdate, setFavoritesUpdate] = useState(0)
   const [nyTime, setNyTime] = useState(null)
@@ -96,7 +96,7 @@ export function Home({ prices, onBuy, loadingClosingPrices }) {
   return (
     <div className="min-h-screen overflow-y-auto scrollbar-hide">
       <header className="sticky top-0 z-10 bg-black/80 backdrop-blur-xl pb-4" style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between" style={{ marginBottom: '16px' }}>
           <h1 className="text-[34px] font-bold tracking-tight">Markets</h1>
           {marketStatus && localCountdown && (
             <div className="flex items-center gap-2" style={{ position: 'relative', top: '2px' }}>
@@ -134,13 +134,6 @@ export function Home({ prices, onBuy, loadingClosingPrices }) {
           />
         </div>
       </header>
-
-      {loadingClosingPrices && (
-        <div className="bg-blue-500/10 border-t border-b border-blue-500/20 py-3 px-4 flex items-center gap-3">
-          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-[15px] text-blue-400">Chargement des prix de clôture...</span>
-        </div>
-      )}
 
       <main>
         <div className="h-6"></div>
@@ -310,7 +303,7 @@ export function Home({ prices, onBuy, loadingClosingPrices }) {
           </div>
         )}
         
-        <div style={{ height: '90px' }}></div>
+        <div style={{ height: '120px' }}></div>
       </main>
     </div>
   )

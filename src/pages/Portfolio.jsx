@@ -204,7 +204,7 @@ export function Portfolio({ portfolio, prices, onClearNotifications }) {
                   </div>
                 )}
         
-        <div style={{ height: '90px' }}></div>
+        <div style={{ height: '120px' }}></div>
       </main>
     </div>
   )

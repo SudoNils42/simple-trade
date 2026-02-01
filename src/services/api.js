@@ -526,9 +526,6 @@ export async function fetchClosingPricesFromYahoo(forceRefresh = false) {
 
 export async function fetchHistoricalData(symbol, range = '1d') {
   try {
-    const asset = ASSETS.find(a => a.symbol === symbol)
-    const shouldInvert = asset?.invertPrice || false
-    
     const rangeMap = {
       '24h': '1d',
       '7d': '7d',
@@ -561,7 +558,7 @@ export async function fetchHistoricalData(symbol, range = '1d') {
       
       const chartData = timestamps.map((time, i) => ({
         time,
-        value: shouldInvert && closes[i] > 0 ? 1 / closes[i] : closes[i]
+        value: closes[i]
       })).filter(d => d.value != null)
       
       return chartData

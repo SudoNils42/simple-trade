@@ -1,5 +1,8 @@
 # Simple Trade
 
+![Live Demo](https://img.shields.io/badge/Live%20Demo-https%3A%2F%2Fsudonils42.github.io%2Fsimple-trade%2F-blue?style=for-the-badge)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
+![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite)
 **A lightweight, real-time trading simulator & portfolio manager.**  
 Practice buying and selling stocks, cryptocurrencies, indices and commodities **with zero risk**. Perfect for learning, testing strategies, or just having fun with the markets!
 
@@ -22,7 +25,3 @@ Practice buying and selling stocks, cryptocurrencies, indices and commodities **
 - Crypto: BTC-USD, ETH-USD, SOL-USD, BNB-USD, XRP-USD...
 - Indices: S&P 500 (^GSPC), Nasdaq (^IXIC), Dow Jones (^DJI), VIX
 - Commodities: Gold, Silver, Crude Oil
-
-
-![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
-![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite)

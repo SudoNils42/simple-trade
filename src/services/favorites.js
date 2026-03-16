@@ -1,12 +1,21 @@
 const FAVORITES_KEY = 'trading_app_favorites'
 
 export function loadFavorites() {
-  const stored = localStorage.getItem(FAVORITES_KEY)
-  return stored ? JSON.parse(stored) : []
+  try {
+    const stored = localStorage.getItem(FAVORITES_KEY)
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(item => typeof item === 'string')
+  } catch {
+    return []
+  }
 }
 
 export function saveFavorites(favorites) {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites))
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites))
+  } catch {}
 }
 
 export function toggleFavorite(symbol) {

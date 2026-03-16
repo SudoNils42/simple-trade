@@ -20,7 +20,7 @@ Practice buying and selling stocks, cryptocurrencies, indices and commodities **
 **Preloaded assets** (40+):
 - Stocks: NVDA, TSLA, AAPL, AMD, PLTR, AMZN, META, MSFT, GOOGL, NFLX...
 - Crypto: BTC-USD, ETH-USD, SOL-USD, BNB-USD, XRP-USD...
-- Indices: S&P 500 (^GSPC), Nasdaq (^IXIC), Dow Jones (^DJI), VIX
+- Indices: S&P 500, Nasdaq, Dow Jones, VIX
 - Commodities: Gold, Silver, Crude Oil
 
 ![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
